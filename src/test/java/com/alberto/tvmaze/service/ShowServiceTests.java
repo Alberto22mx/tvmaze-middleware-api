@@ -41,12 +41,10 @@ class ShowServiceTests {
         long showId = 42L;
         TvMazeShowDetails cachedShow = show(showId, "Cached Show");
         List<CommentSummaryResponse> comments = List.of(new CommentSummaryResponse("Excellent", 5));
-        when(showCacheRepository.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(
-                showId, cachedShow, Instant.now(), Instant.now().plusSeconds(3600))));
+        when(showCacheRepository.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(showId, cachedShow, Instant.now(), Instant.now().plusSeconds(3600))));
         when(commentService.getCommentsByShowIds(List.of(showId))).thenReturn(Map.of(showId, comments));
 
-        ShowService showService = new ShowService(
-                tvMazeClient, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
+        ShowService showService = new ShowService(tvMazeClient, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
         ShowResponse response = showService.getShow(showId);
 
         assertThat(response.id()).isEqualTo(showId);

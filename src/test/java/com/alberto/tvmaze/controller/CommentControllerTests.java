@@ -62,7 +62,11 @@ class CommentControllerTests {
                 "rating must be greater than or equal to 0");
         assertInvalid("{\"show_id\": 1, \"comment\": \"Great show\", \"rating\": 6}", "rating",
                 "rating must be less than or equal to 5");
+        assertInvalid("{\"show_id\": 1, \"comment\": \"Great show\", \"rating\": null}", "rating",
+                "rating is required");
         assertInvalid("{\"show_id\": 1, \"comment\": \"\", \"rating\": 3}", "comment", "comment is required");
+        assertInvalid("{\"show_id\": 1, \"comment\": null, \"rating\": 3}", "comment", "comment is required");
+        assertInvalid("{\"show_id\": 1, \"comment\": \"   \", \"rating\": 3}", "comment", "comment is required");
         assertInvalid("{\"show_id\": null, \"comment\": \"Great show\", \"rating\": 3}", "show_id", "show_id is required");
 
         verify(commentService, never()).createComment(any());

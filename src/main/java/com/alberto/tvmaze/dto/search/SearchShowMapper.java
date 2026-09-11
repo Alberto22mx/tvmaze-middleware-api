@@ -1,20 +1,26 @@
 package com.alberto.tvmaze.dto.search;
 
+import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import com.alberto.tvmaze.dto.search.external.TvMazeSearchResult;
 import com.alberto.tvmaze.dto.search.external.TvMazeShow;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SearchShowMapper {
 
-    public List<SearchShowResponse> toResponses(List<TvMazeSearchResult> searchResults) {
+    public List<SearchShowResponse> toResponses(
+            List<TvMazeSearchResult> searchResults,
+            Map<Long, List<CommentSummaryResponse>> commentsByShowId) {
         return searchResults.stream()
-                .map(this::toResponse)
+                .map(searchResult -> toResponse(searchResult, commentsByShowId))
                 .toList();
     }
 
-    private SearchShowResponse toResponse(TvMazeSearchResult searchResult) {
+    private SearchShowResponse toResponse(
+            TvMazeSearchResult searchResult,
+            Map<Long, List<CommentSummaryResponse>> commentsByShowId) {
         TvMazeShow show = searchResult.show();
 
         return new SearchShowResponse(
@@ -22,7 +28,8 @@ public class SearchShowMapper {
                 show.name(),
                 resolveChannel(show),
                 show.summary(),
-                show.genres());
+                show.genres(),
+                commentsByShowId.getOrDefault(show.id(), List.of()));
     }
 
     private String resolveChannel(TvMazeShow show) {

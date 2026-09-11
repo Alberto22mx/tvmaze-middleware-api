@@ -1,5 +1,6 @@
 package com.alberto.tvmaze.dto.search;
 
+import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import java.util.List;
 
 public record SearchShowResponse(
@@ -7,5 +8,6 @@ public record SearchShowResponse(
         String name,
         String channel,
         String summary,
-        List<String> genres) {
+        List<String> genres,
+        List<CommentSummaryResponse> comments) {
 }

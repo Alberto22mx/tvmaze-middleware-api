@@ -1,12 +1,12 @@
 package com.alberto.tvmaze.service;
 
-import com.alberto.tvmaze.client.TvMazeClient;
 import com.alberto.tvmaze.config.CacheProperties;
 import com.alberto.tvmaze.document.ShowCacheDocument;
 import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import com.alberto.tvmaze.dto.show.ShowResponse;
 import com.alberto.tvmaze.dto.show.ShowResponseMapper;
 import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
+import com.alberto.tvmaze.port.out.TvMazePort;
 import com.alberto.tvmaze.repository.ShowCacheRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,19 +17,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class ShowService {
 
-    private final TvMazeClient tvMazeClient;
+    private final TvMazePort tvMazePort;
     private final ShowCacheRepository showCacheRepository;
     private final CacheProperties cacheProperties;
     private final CommentService commentService;
     private final ShowResponseMapper showResponseMapper;
 
     public ShowService(
-            TvMazeClient tvMazeClient,
+            TvMazePort tvMazePort,
             ShowCacheRepository showCacheRepository,
             CacheProperties cacheProperties,
             CommentService commentService,
             ShowResponseMapper showResponseMapper) {
-        this.tvMazeClient = tvMazeClient;
+        this.tvMazePort = tvMazePort;
         this.showCacheRepository = showCacheRepository;
         this.cacheProperties = cacheProperties;
         this.commentService = commentService;
@@ -59,7 +59,7 @@ public class ShowService {
     }
 
     private TvMazeShowDetails fetchAndCacheShow(long showId) {
-        TvMazeShowDetails show = tvMazeClient.getShow(showId);
+        TvMazeShowDetails show = tvMazePort.getShow(showId);
         Instant cachedAt = Instant.now();
         Instant expiresAt = cachedAt.plus(Duration.ofHours(cacheProperties.ttlHours()));
         showCacheRepository.save(new ShowCacheDocument(showId, show, cachedAt, expiresAt));

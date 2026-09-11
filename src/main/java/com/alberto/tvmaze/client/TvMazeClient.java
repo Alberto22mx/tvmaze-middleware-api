@@ -3,13 +3,14 @@ package com.alberto.tvmaze.client;
 import com.alberto.tvmaze.config.TvMazeProperties;
 import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
 import com.alberto.tvmaze.dto.search.external.TvMazeSearchResult;
+import com.alberto.tvmaze.port.out.TvMazePort;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 @Component
-public class TvMazeClient {
+public class TvMazeClient implements TvMazePort {
 
     private final RestClient restClient;
 
@@ -19,6 +20,7 @@ public class TvMazeClient {
                 .build();
     }
 
+    @Override
     public List<TvMazeSearchResult> searchShows(String searchQuery) {
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -30,6 +32,7 @@ public class TvMazeClient {
                 });
     }
 
+    @Override
     public TvMazeShowDetails getShow(long showId) {
         return restClient.get()
                 .uri("/shows/{showId}", showId)

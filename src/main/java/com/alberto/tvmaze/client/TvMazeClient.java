@@ -1,6 +1,7 @@
 package com.alberto.tvmaze.client;
 
 import com.alberto.tvmaze.config.TvMazeProperties;
+import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
 import com.alberto.tvmaze.dto.search.external.TvMazeSearchResult;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
@@ -27,5 +28,12 @@ public class TvMazeClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 });
+    }
+
+    public TvMazeShowDetails getShow(long showId) {
+        return restClient.get()
+                .uri("/shows/{showId}", showId)
+                .retrieve()
+                .body(TvMazeShowDetails.class);
     }
 }

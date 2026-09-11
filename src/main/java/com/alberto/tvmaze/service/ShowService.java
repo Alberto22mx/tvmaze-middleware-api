@@ -6,8 +6,8 @@ import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import com.alberto.tvmaze.dto.show.ShowResponse;
 import com.alberto.tvmaze.dto.show.ShowResponseMapper;
 import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
+import com.alberto.tvmaze.port.out.ShowCachePort;
 import com.alberto.tvmaze.port.out.TvMazePort;
-import com.alberto.tvmaze.repository.ShowCacheRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -18,19 +18,19 @@ import org.springframework.stereotype.Service;
 public class ShowService {
 
     private final TvMazePort tvMazePort;
-    private final ShowCacheRepository showCacheRepository;
+    private final ShowCachePort showCachePort;
     private final CacheProperties cacheProperties;
     private final CommentService commentService;
     private final ShowResponseMapper showResponseMapper;
 
     public ShowService(
             TvMazePort tvMazePort,
-            ShowCacheRepository showCacheRepository,
+            ShowCachePort showCachePort,
             CacheProperties cacheProperties,
             CommentService commentService,
             ShowResponseMapper showResponseMapper) {
         this.tvMazePort = tvMazePort;
-        this.showCacheRepository = showCacheRepository;
+        this.showCachePort = showCachePort;
         this.cacheProperties = cacheProperties;
         this.commentService = commentService;
         this.showResponseMapper = showResponseMapper;
@@ -45,7 +45,7 @@ public class ShowService {
     }
 
     private TvMazeShowDetails getCachedOrFetchShow(long showId) {
-        Optional<ShowCacheDocument> cachedShow = showCacheRepository.findById(showId)
+        Optional<ShowCacheDocument> cachedShow = showCachePort.findById(showId)
                 .filter(this::isCacheValid);
         if (cachedShow.isPresent()) {
             return cachedShow.get().show();
@@ -62,7 +62,7 @@ public class ShowService {
         TvMazeShowDetails show = tvMazePort.getShow(showId);
         Instant cachedAt = Instant.now();
         Instant expiresAt = cachedAt.plus(Duration.ofHours(cacheProperties.ttlHours()));
-        showCacheRepository.save(new ShowCacheDocument(showId, show, cachedAt, expiresAt));
+        showCachePort.save(new ShowCacheDocument(showId, show, cachedAt, expiresAt));
         return show;
     }
 }

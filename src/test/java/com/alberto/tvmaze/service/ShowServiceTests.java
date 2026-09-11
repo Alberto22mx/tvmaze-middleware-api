@@ -12,8 +12,8 @@ import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import com.alberto.tvmaze.dto.show.ShowResponse;
 import com.alberto.tvmaze.dto.show.ShowResponseMapper;
 import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
+import com.alberto.tvmaze.port.out.ShowCachePort;
 import com.alberto.tvmaze.port.out.TvMazePort;
-import com.alberto.tvmaze.repository.ShowCacheRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +31,7 @@ class ShowServiceTests {
     private TvMazePort tvMazePort;
 
     @Mock
-    private ShowCacheRepository showCacheRepository;
+    private ShowCachePort showCachePort;
 
     @Mock
     private CommentService commentService;
@@ -41,10 +41,10 @@ class ShowServiceTests {
         long showId = 42L;
         TvMazeShowDetails cachedShow = show(showId, "Cached Show");
         List<CommentSummaryResponse> comments = List.of(new CommentSummaryResponse("Excellent", 5));
-        when(showCacheRepository.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(showId, cachedShow, Instant.now(), Instant.now().plusSeconds(3600))));
+        when(showCachePort.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(showId, cachedShow, Instant.now(), Instant.now().plusSeconds(3600))));
         when(commentService.getCommentsByShowIds(List.of(showId))).thenReturn(Map.of(showId, comments));
 
-        ShowService showService = new ShowService(tvMazePort, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
+        ShowService showService = new ShowService(tvMazePort, showCachePort, new CacheProperties(24), commentService, new ShowResponseMapper());
         ShowResponse response = showService.getShow(showId);
 
         assertThat(response.id()).isEqualTo(showId);
@@ -52,24 +52,24 @@ class ShowServiceTests {
         assertThat(response.comments()).containsExactlyElementsOf(comments);
         verify(commentService).getCommentsByShowIds(List.of(showId));
         verify(tvMazePort, never()).getShow(any(Long.class));
-        verify(showCacheRepository, never()).save(any());
+        verify(showCachePort, never()).save(any());
     }
 
     @Test
     void fetchesAndCachesShowOnCacheMiss() {
         long showId = 7L;
         TvMazeShowDetails fetchedShow = show(showId, "Fetched Show");
-        when(showCacheRepository.findById(showId)).thenReturn(Optional.empty());
+        when(showCachePort.findById(showId)).thenReturn(Optional.empty());
         when(tvMazePort.getShow(showId)).thenReturn(fetchedShow);
         when(commentService.getCommentsByShowIds(List.of(showId))).thenReturn(Map.of());
 
         ShowService showService = new ShowService(
-                tvMazePort, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
+                tvMazePort, showCachePort, new CacheProperties(24), commentService, new ShowResponseMapper());
         ShowResponse response = showService.getShow(showId);
 
         ArgumentCaptor<ShowCacheDocument> cachedDocument = ArgumentCaptor.forClass(ShowCacheDocument.class);
         verify(tvMazePort).getShow(showId);
-        verify(showCacheRepository).save(cachedDocument.capture());
+        verify(showCachePort).save(cachedDocument.capture());
         assertThat(cachedDocument.getValue().showId()).isEqualTo(showId);
         assertThat(cachedDocument.getValue().show()).isSameAs(fetchedShow);
         assertThat(response.id()).isEqualTo(showId);
@@ -82,18 +82,18 @@ class ShowServiceTests {
         long showId = 8L;
         TvMazeShowDetails expiredShow = show(showId, "Expired Show");
         TvMazeShowDetails refreshedShow = show(showId, "Refreshed Show");
-        when(showCacheRepository.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(
+        when(showCachePort.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(
                 showId, expiredShow, Instant.now().minusSeconds(7200), Instant.now().minusSeconds(3600))));
         when(tvMazePort.getShow(showId)).thenReturn(refreshedShow);
         when(commentService.getCommentsByShowIds(List.of(showId))).thenReturn(Map.of());
 
         ShowService showService = new ShowService(
-                tvMazePort, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
+                tvMazePort, showCachePort, new CacheProperties(24), commentService, new ShowResponseMapper());
         ShowResponse response = showService.getShow(showId);
 
         ArgumentCaptor<ShowCacheDocument> cachedDocument = ArgumentCaptor.forClass(ShowCacheDocument.class);
         verify(tvMazePort).getShow(showId);
-        verify(showCacheRepository).save(cachedDocument.capture());
+        verify(showCachePort).save(cachedDocument.capture());
         assertThat(cachedDocument.getValue().show()).isSameAs(refreshedShow);
         assertThat(cachedDocument.getValue().expiresAt()).isAfter(Instant.now());
         assertThat(response.name()).isEqualTo("Refreshed Show");

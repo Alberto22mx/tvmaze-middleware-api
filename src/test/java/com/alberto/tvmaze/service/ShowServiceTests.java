@@ -77,6 +77,28 @@ class ShowServiceTests {
         assertThat(response.comments()).isEmpty();
     }
 
+    @Test
+    void fetchesAndReplacesExpiredCachedShow() {
+        long showId = 8L;
+        TvMazeShowDetails expiredShow = show(showId, "Expired Show");
+        TvMazeShowDetails refreshedShow = show(showId, "Refreshed Show");
+        when(showCacheRepository.findById(showId)).thenReturn(Optional.of(new ShowCacheDocument(
+                showId, expiredShow, Instant.now().minusSeconds(7200), Instant.now().minusSeconds(3600))));
+        when(tvMazeClient.getShow(showId)).thenReturn(refreshedShow);
+        when(commentService.getCommentsByShowIds(List.of(showId))).thenReturn(Map.of());
+
+        ShowService showService = new ShowService(
+                tvMazeClient, showCacheRepository, new CacheProperties(24), commentService, new ShowResponseMapper());
+        ShowResponse response = showService.getShow(showId);
+
+        ArgumentCaptor<ShowCacheDocument> cachedDocument = ArgumentCaptor.forClass(ShowCacheDocument.class);
+        verify(tvMazeClient).getShow(showId);
+        verify(showCacheRepository).save(cachedDocument.capture());
+        assertThat(cachedDocument.getValue().show()).isSameAs(refreshedShow);
+        assertThat(cachedDocument.getValue().expiresAt()).isAfter(Instant.now());
+        assertThat(response.name()).isEqualTo("Refreshed Show");
+    }
+
     private TvMazeShowDetails show(long id, String name) {
         return new TvMazeShowDetails(
                 id, "https://example.test/shows/" + id, name, null, null, List.of(), null, null, null,

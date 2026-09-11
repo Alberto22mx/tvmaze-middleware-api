@@ -45,12 +45,17 @@ public class ShowService {
     }
 
     private TvMazeShowDetails getCachedOrFetchShow(long showId) {
-        Optional<ShowCacheDocument> cachedShow = showCacheRepository.findById(showId);
+        Optional<ShowCacheDocument> cachedShow = showCacheRepository.findById(showId)
+                .filter(this::isCacheValid);
         if (cachedShow.isPresent()) {
             return cachedShow.get().show();
         }
 
         return fetchAndCacheShow(showId);
+    }
+
+    private boolean isCacheValid(ShowCacheDocument cachedShow) {
+        return cachedShow.expiresAt() != null && cachedShow.expiresAt().isAfter(Instant.now());
     }
 
     private TvMazeShowDetails fetchAndCacheShow(long showId) {

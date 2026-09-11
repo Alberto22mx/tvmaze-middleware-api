@@ -3,7 +3,7 @@ package com.alberto.tvmaze.service;
 import com.alberto.tvmaze.document.CommentDocument;
 import com.alberto.tvmaze.dto.comment.CommentResponse;
 import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
-import com.alberto.tvmaze.dto.comment.CreateCommentRequest;
+import com.alberto.tvmaze.dto.comment.CommentDTO;
 import com.alberto.tvmaze.repository.CommentRepository;
 import java.time.Instant;
 import java.util.Collection;
@@ -21,7 +21,7 @@ public class CommentService {
         this.commentRepository = commentRepository;
     }
 
-    public CommentResponse createComment(CreateCommentRequest request) {
+    public CommentResponse createComment(CommentDTO request) {
         commentRepository.save(new CommentDocument(
                 null,
                 request.show_id(),

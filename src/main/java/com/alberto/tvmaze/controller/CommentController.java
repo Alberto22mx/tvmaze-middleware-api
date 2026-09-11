@@ -1,7 +1,7 @@
 package com.alberto.tvmaze.controller;
 
 import com.alberto.tvmaze.dto.comment.CommentResponse;
-import com.alberto.tvmaze.dto.comment.CreateCommentRequest;
+import com.alberto.tvmaze.dto.comment.CommentDTO;
 import com.alberto.tvmaze.service.CommentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -23,7 +23,7 @@ public class CommentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CommentResponse createComment(@Valid @RequestBody CreateCommentRequest request) {
+    public CommentResponse createComment(@Valid @RequestBody CommentDTO request) {
         return commentService.createComment(request);
     }
 }

@@ -1,0 +1,28 @@
+# TVMaze Middleware API
+
+Middleware REST API developed in Java and Spring Boot for consuming and extending TVMaze services.
+
+## Technologies
+
+- Java 21
+- Spring Boot
+- Maven
+- MongoDB Atlas
+- TVMaze API
+
+## Requirements
+
+- Java 21
+- Maven
+- Git
+- MongoDB Atlas account
+
+## Configuration
+
+The application requires the following environment variables:
+
+```env
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/tvmaze
+TVMAZE_BASE_URL=https://api.tvmaze.com
+CACHE_TTL_HOURS=24
+SERVER_PORT=8080

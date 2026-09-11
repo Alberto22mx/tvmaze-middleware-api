@@ -1,0 +1,17 @@
+spring:
+
+  application:
+    name: tvmaze-middleware-api
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://admin:admin123@localhost:27017/tvmaze?authSource=admin}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+tvmaze:
+  base-url: ${TVMAZE_BASE_URL:https://api.tvmaze.com}
+
+cache:
+  ttl-hours: ${CACHE_TTL_HOURS:24}

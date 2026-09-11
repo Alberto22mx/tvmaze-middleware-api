@@ -1,68 +1,66 @@
 package com.alberto.tvmaze.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.alberto.tvmaze.client.TvMazeClient;
-import com.alberto.tvmaze.config.TvMazeProperties;
-import com.alberto.tvmaze.document.CommentDocument;
+import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
 import com.alberto.tvmaze.dto.search.SearchShowMapper;
 import com.alberto.tvmaze.dto.search.SearchShowResponse;
+import com.alberto.tvmaze.dto.search.external.TvMazeChannel;
 import com.alberto.tvmaze.dto.search.external.TvMazeSearchResult;
 import com.alberto.tvmaze.dto.search.external.TvMazeShow;
-import com.alberto.tvmaze.repository.CommentRepository;
-import java.lang.reflect.Proxy;
-import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class SearchServiceTests {
 
+    @Mock
+    private TvMazeClient tvMazeClient;
+
+    @Mock
+    private CommentService commentService;
+
+    private final SearchShowMapper searchShowMapper = new SearchShowMapper();
+
     @Test
-    void retrievesCommentsWithOneBatchQuery() {
-        List<TvMazeSearchResult> searchResults = List.of(
-                new TvMazeSearchResult(0.9, new TvMazeShow(1L, "First", null, null, null, List.of())),
-                new TvMazeSearchResult(0.8, new TvMazeShow(2L, "Second", null, null, null, List.of())));
-        BatchCommentRepository batchCommentRepository = new BatchCommentRepository();
-        CommentRepository commentRepository = batchCommentRepository.createProxy();
-        CommentService commentService = new CommentService(commentRepository);
-        TvMazeClient tvMazeClient = new TvMazeClient(new TvMazeProperties("https://api.tvmaze.com")) {
-            @Override
-            public List<TvMazeSearchResult> searchShows(String searchQuery) {
-                return searchResults;
-            }
-        };
-        SearchService searchService = new SearchService(tvMazeClient, new SearchShowMapper(), commentService);
+    void usesNetworkNameAsChannelAndAddsItsComments() {
+        TvMazeShow show = new TvMazeShow(
+                1L, "First", new TvMazeChannel("Network One"), new TvMazeChannel("Web One"), "Summary", List.of("Drama"));
+        when(tvMazeClient.searchShows("first")).thenReturn(List.of(new TvMazeSearchResult(0.9, show)));
+        List<CommentSummaryResponse> comments = List.of(new CommentSummaryResponse("Great show", 5));
+        when(commentService.getCommentsByShowIds(List.of(1L))).thenReturn(Map.of(1L, comments));
 
-        List<SearchShowResponse> responses = searchService.searchShows("show");
+        SearchService searchService = new SearchService(tvMazeClient, searchShowMapper, commentService);
+        List<SearchShowResponse> responses = searchService.searchShows("first");
 
-        assertThat(batchCommentRepository.queryCount).isOne();
-        assertThat(batchCommentRepository.showIds).containsExactlyInAnyOrder(1L, 2L);
-        assertThat(responses.getFirst().comments()).hasSize(1);
-        assertThat(responses.get(1).comments()).isEmpty();
+        assertThat(responses).singleElement().satisfies(response -> {
+            assertThat(response.channel()).isEqualTo("Network One");
+            assertThat(response.comments()).containsExactlyElementsOf(comments);
+        });
+        verify(commentService).getCommentsByShowIds(List.of(1L));
     }
 
-    private static class BatchCommentRepository {
+    @Test
+    void fallsBackToWebChannelAndUsesEmptyCommentsWhenThereAreNone() {
+        TvMazeShow show = new TvMazeShow(
+                2L, "Second", null, new TvMazeChannel("Web Two"), "Summary", List.of("Comedy"));
+        when(tvMazeClient.searchShows("second")).thenReturn(List.of(new TvMazeSearchResult(0.8, show)));
+        when(commentService.getCommentsByShowIds(List.of(2L))).thenReturn(Map.of());
 
-        private int queryCount;
-        private Collection<Long> showIds;
+        SearchService searchService = new SearchService(tvMazeClient, searchShowMapper, commentService);
+        List<SearchShowResponse> responses = searchService.searchShows("second");
 
-        private CommentRepository createProxy() {
-            return (CommentRepository) Proxy.newProxyInstance(
-                    getClass().getClassLoader(),
-                    new Class<?>[]{CommentRepository.class},
-                    (proxy, method, arguments) -> {
-                        if (method.getName().equals("findByShowIdIn")) {
-                            queryCount++;
-                            showIds = ((Collection<?>) arguments[0]).stream()
-                                    .map(Long.class::cast)
-                                    .toList();
-                            return List.of(new CommentDocument(
-                                    "comment-id", 1L, "Great show", 5, Instant.now()));
-                        }
-
-                        throw new UnsupportedOperationException(method.getName());
-                    });
-        }
+        assertThat(responses).singleElement().satisfies(response -> {
+            assertThat(response.channel()).isEqualTo("Web Two");
+            assertThat(response.comments()).isEmpty();
+        });
     }
 }

@@ -1,68 +1,79 @@
 package com.alberto.tvmaze.controller;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.alberto.tvmaze.exception.GlobalExceptionHandler;
-import com.alberto.tvmaze.repository.CommentRepository;
 import com.alberto.tvmaze.service.CommentService;
-import java.lang.reflect.Proxy;
+import com.alberto.tvmaze.dto.comment.CommentResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+@ExtendWith(MockitoExtension.class)
 class CommentControllerTests {
 
+    @Mock
     private CommentService commentService;
     private MockMvc mockMvc;
-    private boolean commentSaved;
 
     @BeforeEach
     void setUp() {
-        CommentRepository commentRepository = (CommentRepository) Proxy.newProxyInstance(
-                getClass().getClassLoader(),
-                new Class<?>[]{CommentRepository.class},
-                (proxy, method, arguments) -> {
-                    if (method.getName().equals("save")) {
-                        commentSaved = true;
-                        return arguments[0];
-                    }
-
-                    throw new UnsupportedOperationException(method.getName());
-                });
-        commentService = new CommentService(commentRepository);
         mockMvc = MockMvcBuilders.standaloneSetup(new CommentController(commentService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    void createsCommentWithValidRequest() throws Exception {
+    void acceptsRatingBoundaries() throws Exception {
+        when(commentService.createComment(any())).thenReturn(new CommentResponse("CREATED"));
+
+        mockMvc.perform(post("/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"show_id": 1, "comment": "Great show", "rating": 0}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("CREATED"));
+
         mockMvc.perform(post("/comments")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"show_id": 1, "comment": "Great show", "rating": 5}
                                 """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("CREATED"));
+                .andExpect(status().isCreated());
+
+        verify(commentService, org.mockito.Mockito.times(2)).createComment(any());
     }
 
     @Test
-    void rejectsRatingAboveFive() throws Exception {
+    void rejectsInvalidCommentPayloads() throws Exception {
+        assertInvalid("{\"show_id\": 1, \"comment\": \"Great show\", \"rating\": -1}", "rating",
+                "rating must be greater than or equal to 0");
+        assertInvalid("{\"show_id\": 1, \"comment\": \"Great show\", \"rating\": 6}", "rating",
+                "rating must be less than or equal to 5");
+        assertInvalid("{\"show_id\": 1, \"comment\": \"\", \"rating\": 3}", "comment", "comment is required");
+        assertInvalid("{\"show_id\": null, \"comment\": \"Great show\", \"rating\": 3}", "show_id", "show_id is required");
+
+        verify(commentService, never()).createComment(any());
+    }
+
+    private void assertInvalid(String payload, String field, String message) throws Exception {
         mockMvc.perform(post("/comments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"show_id": 1, "comment": "Great show", "rating": 6}
-                                """))
+                        .content(payload))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.errors.rating")
-                        .value("rating must be less than or equal to 5"));
-
-        assertFalse(commentSaved);
+                .andExpect(jsonPath("$.errors." + field).value(message));
     }
 }

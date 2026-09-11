@@ -1,59 +1,67 @@
 package com.alberto.tvmaze.exception;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.alberto.tvmaze.dto.error.ErrorResponse;
+import com.alberto.tvmaze.controller.ShowController;
 import com.alberto.tvmaze.exception.tvmaze.TvMazeConnectionException;
 import com.alberto.tvmaze.exception.tvmaze.TvMazeNotFoundException;
 import com.alberto.tvmaze.exception.tvmaze.TvMazeRateLimitException;
 import com.alberto.tvmaze.exception.tvmaze.TvMazeServerException;
 import com.alberto.tvmaze.exception.tvmaze.TvMazeTimeoutException;
+import com.alberto.tvmaze.service.ShowService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+@ExtendWith(MockitoExtension.class)
 class GlobalExceptionHandlerTests {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    @Mock
+    private ShowService showService;
 
-    @Test
-    void mapsNotFoundTo404() {
-        assertError(
-                handler.handleTvMazeNotFound(new TvMazeNotFoundException(new RuntimeException())),
-                HttpStatus.NOT_FOUND,
-                "TVMaze resource was not found");
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(new ShowController(showService))
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
-    void mapsRateLimitTo429() {
-        assertError(
-                handler.handleTvMazeRateLimit(new TvMazeRateLimitException(new RuntimeException())),
-                HttpStatus.TOO_MANY_REQUESTS,
-                "TVMaze rate limit was exceeded");
+    void returnsNotFoundJsonForTvMaze404() throws Exception {
+        assertError(new TvMazeNotFoundException(new RuntimeException()), 404, "TVMaze resource was not found");
     }
 
     @Test
-    void mapsServerAndConnectionFailuresTo503() {
-        assertError(
-                handler.handleTvMazeUnavailable(new TvMazeServerException(new RuntimeException())),
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "TVMaze server error");
-        assertError(
-                handler.handleTvMazeUnavailable(new TvMazeConnectionException(new RuntimeException())),
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "Unable to connect to TVMaze");
+    void returnsRateLimitJsonForTvMaze429() throws Exception {
+        assertError(new TvMazeRateLimitException(new RuntimeException()), 429, "TVMaze rate limit was exceeded");
     }
 
     @Test
-    void mapsTimeoutTo504() {
-        assertError(
-                handler.handleTvMazeTimeout(new TvMazeTimeoutException(new RuntimeException())),
-                HttpStatus.GATEWAY_TIMEOUT,
-                "TVMaze request timed out");
+    void returnsUnavailableJsonForTvMaze5xxAndConnectionErrors() throws Exception {
+        assertError(new TvMazeServerException(new RuntimeException()), 503, "TVMaze server error");
+        assertError(new TvMazeConnectionException(new RuntimeException()), 503, "Unable to connect to TVMaze");
     }
 
-    private void assertError(ResponseEntity<ErrorResponse> response, HttpStatus status, String message) {
-        assertThat(response.getStatusCode()).isEqualTo(status);
-        assertThat(response.getBody()).isEqualTo(new ErrorResponse(status.value(), message));
+    @Test
+    void returnsGatewayTimeoutJsonForTvMazeTimeout() throws Exception {
+        assertError(new TvMazeTimeoutException(new RuntimeException()), 504, "TVMaze request timed out");
+    }
+
+    private void assertError(RuntimeException exception, int expectedStatus, String expectedMessage) throws Exception {
+        doThrow(exception).when(showService).getShow(1);
+
+        mockMvc.perform(get("/show").param("show_id", "1"))
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.status").value(expectedStatus))
+                .andExpect(jsonPath("$.message").value(expectedMessage));
     }
 }

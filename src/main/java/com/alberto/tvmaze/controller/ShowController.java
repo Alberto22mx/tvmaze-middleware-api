@@ -1,6 +1,6 @@
 package com.alberto.tvmaze.controller;
 
-import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
+import com.alberto.tvmaze.dto.show.ShowResponse;
 import com.alberto.tvmaze.service.ShowService;
 import jakarta.validation.constraints.Positive;
 import org.springframework.validation.annotation.Validated;
@@ -21,7 +21,7 @@ public class ShowController {
     }
 
     @GetMapping
-    public TvMazeShowDetails getShow(@RequestParam("show_id") @Positive long showId) {
+    public ShowResponse getShow(@RequestParam("show_id") @Positive long showId) {
         return showService.getShow(showId);
     }
 }

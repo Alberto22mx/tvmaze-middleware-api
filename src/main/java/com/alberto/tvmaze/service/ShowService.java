@@ -3,10 +3,15 @@ package com.alberto.tvmaze.service;
 import com.alberto.tvmaze.client.TvMazeClient;
 import com.alberto.tvmaze.config.CacheProperties;
 import com.alberto.tvmaze.document.ShowCacheDocument;
+import com.alberto.tvmaze.dto.comment.CommentSummaryResponse;
+import com.alberto.tvmaze.dto.show.ShowResponse;
+import com.alberto.tvmaze.dto.show.ShowResponseMapper;
 import com.alberto.tvmaze.dto.show.external.TvMazeShowDetails;
 import com.alberto.tvmaze.repository.ShowCacheRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,17 +20,37 @@ public class ShowService {
     private final TvMazeClient tvMazeClient;
     private final ShowCacheRepository showCacheRepository;
     private final CacheProperties cacheProperties;
+    private final CommentService commentService;
+    private final ShowResponseMapper showResponseMapper;
 
-    public ShowService(TvMazeClient tvMazeClient, ShowCacheRepository showCacheRepository, CacheProperties cacheProperties) {
+    public ShowService(
+            TvMazeClient tvMazeClient,
+            ShowCacheRepository showCacheRepository,
+            CacheProperties cacheProperties,
+            CommentService commentService,
+            ShowResponseMapper showResponseMapper) {
         this.tvMazeClient = tvMazeClient;
         this.showCacheRepository = showCacheRepository;
         this.cacheProperties = cacheProperties;
+        this.commentService = commentService;
+        this.showResponseMapper = showResponseMapper;
     }
 
-    public TvMazeShowDetails getShow(long showId) {
-        return showCacheRepository.findById(showId)
-                .map(ShowCacheDocument::show)
-                .orElseGet(() -> fetchAndCacheShow(showId));
+    public ShowResponse getShow(long showId) {
+        TvMazeShowDetails show = getCachedOrFetchShow(showId);
+        List<CommentSummaryResponse> comments = commentService.getCommentsByShowIds(List.of(showId))
+                .getOrDefault(showId, List.of());
+
+        return showResponseMapper.toResponse(show, comments);
+    }
+
+    private TvMazeShowDetails getCachedOrFetchShow(long showId) {
+        Optional<ShowCacheDocument> cachedShow = showCacheRepository.findById(showId);
+        if (cachedShow.isPresent()) {
+            return cachedShow.get().show();
+        }
+
+        return fetchAndCacheShow(showId);
     }
 
     private TvMazeShowDetails fetchAndCacheShow(long showId) {
